@@ -45,9 +45,25 @@ def print_markdown(text: str):
 
 
 async def run_interactive_session(
-    agent: AcademicRefereeAgent, resume_session: str = None
+    agent: AcademicRefereeAgent,
+    resume_session: str = None,
+    target_journal: str = None,
+    non_interactive: bool = False,
 ):
-    """Run the interactive agent session."""
+    """Run the interactive agent session.
+
+    Args:
+        agent: The referee agent instance
+        resume_session: Optional session ID to resume
+        target_journal: Optional journal name (skips interactive selection)
+        non_interactive: If True, skip all prompts and run end-to-end
+    """
+
+    # Pre-set journal if provided
+    if target_journal and not agent.state.target_journal:
+        agent.state.target_journal = target_journal
+        agent.state.candidate_journals = [target_journal]
+        console.print(f"[green]Target journal: {target_journal}[/green]\n")
 
     # Resume session if specified
     if resume_session:
@@ -66,46 +82,48 @@ async def run_interactive_session(
     if agent.state.stage in ["init", "journal_selection"]:
         agent.state.stage = "journal_selection"
 
-        console.print(
-            Panel(
-                CHECKPOINT_PROMPTS["journal_selection"]["initial"],
-                title="[bold]Step 1: Target Journal[/bold]",
-                border_style="cyan",
-            )
-        )
-
-        while not agent.state.target_journal:
-            user_input = Prompt.ask("\n[bold cyan]Your response[/bold cyan]")
-
-            if not user_input.strip():
-                continue
-
-            # Check for R&R
-            if any(
-                term in user_input.lower() for term in ["r&r", "revise", "resubmit"]
-            ):
-                agent.state.submission_type = "r_and_r"
-
-            # Extract journal name
-            agent.state.target_journal = user_input.strip()
-            agent.state.candidate_journals = [user_input.strip()]
-
+        # Skip interactive selection if journal already set
+        if not agent.state.target_journal:
             console.print(
-                f"\n[green]Target journal: {agent.state.target_journal}[/green]"
+                Panel(
+                    CHECKPOINT_PROMPTS["journal_selection"]["initial"],
+                    title="[bold]Step 1: Target Journal[/bold]",
+                    border_style="cyan",
+                )
             )
 
-            if agent.state.submission_type == "r_and_r":
+            while not agent.state.target_journal:
+                user_input = Prompt.ask("\n[bold cyan]Your response[/bold cyan]")
+
+                if not user_input.strip():
+                    continue
+
+                # Check for R&R
+                if any(
+                    term in user_input.lower() for term in ["r&r", "revise", "resubmit"]
+                ):
+                    agent.state.submission_type = "r_and_r"
+
+                # Extract journal name
+                agent.state.target_journal = user_input.strip()
+                agent.state.candidate_journals = [user_input.strip()]
+
                 console.print(
-                    Panel(
-                        CHECKPOINT_PROMPTS["journal_selection"]["r_and_r_followup"],
-                        border_style="yellow",
+                    f"\n[green]Target journal: {agent.state.target_journal}[/green]"
+                )
+
+                if agent.state.submission_type == "r_and_r":
+                    console.print(
+                        Panel(
+                            CHECKPOINT_PROMPTS["journal_selection"]["r_and_r_followup"],
+                            border_style="yellow",
+                        )
                     )
-                )
-                concerns = Prompt.ask(
-                    "\n[bold cyan]Previous concerns (or press Enter to skip)[/bold cyan]"
-                )
-                if concerns.strip():
-                    agent.state.previous_concerns = concerns
+                    concerns = Prompt.ask(
+                        "\n[bold cyan]Previous concerns (or press Enter to skip)[/bold cyan]"
+                    )
+                    if concerns.strip():
+                        agent.state.previous_concerns = concerns
 
         agent.update_state(stage="journal_research")
 
@@ -150,51 +168,77 @@ async def run_interactive_session(
             f"\n[dim]Articles analyzed: {profile.get('articles_analyzed', 0)}[/dim]"
         )
 
-        proceed = Prompt.ask(
-            "\n[bold cyan]Proceed to paper upload? (yes/no)[/bold cyan]", default="yes"
-        )
-        if proceed.lower() in ["yes", "y", ""]:
+        # Skip confirmation in non-interactive mode
+        if non_interactive:
             agent.update_state(stage="paper_upload")
+        else:
+            proceed = Prompt.ask(
+                "\n[bold cyan]Proceed to paper upload? (yes/no)[/bold cyan]", default="yes"
+            )
+            if proceed.lower() in ["yes", "y", ""]:
+                agent.update_state(stage="paper_upload")
 
     # Stage 3: Paper Upload
     if agent.state.stage == "paper_upload":
-        console.print(
-            Panel(
-                CHECKPOINT_PROMPTS["paper_upload"]["request"],
-                title="[bold]Step 3: Paper Upload[/bold]",
-                border_style="cyan",
-            )
-        )
-
-        while not agent.state.parsed_paper:
-            file_path = Prompt.ask("\n[bold cyan]Paper file path[/bold cyan]")
-            file_path = file_path.strip().strip('"').strip("'")
-
-            # Expand user home directory
-            file_path = os.path.expanduser(file_path)
-
-            if not os.path.exists(file_path):
-                console.print(f"[red]File not found: {file_path}[/red]")
-                continue
-
+        # Auto-parse if paper path already set
+        if agent.state.paper_path and not agent.state.parsed_paper:
             try:
                 with console.status("[bold green]Parsing paper...[/bold green]"):
-                    parsed = agent.parse_paper(file_path)
-                    agent.state.paper_path = file_path
+                    parsed = agent.parse_paper(agent.state.paper_path)
                     agent.state.parsed_paper = parsed
 
-                console.print(f"\n[green]Paper parsed successfully[/green]")
+                console.print(f"[green]Paper parsed successfully[/green]")
                 console.print(f"[bold]Title:[/bold] {parsed.get('title', 'Unknown')}")
                 console.print(
                     f"[bold]Pages:[/bold] {parsed.get('page_count', '?')} | "
                     f"[bold]Words:[/bold] {parsed.get('word_count', '?'):,}"
                 )
                 console.print(
-                    f"[bold]Sections:[/bold] {', '.join(list(parsed.get('sections', {}).keys())[:5])}"
+                    f"[bold]Sections:[/bold] {', '.join(list(parsed.get('sections', {}).keys())[:5])}\n"
                 )
-
             except Exception as e:
                 console.print(f"[red]Error parsing paper: {e}[/red]")
+                return
+
+        # Interactive paper selection if not already set
+        if not agent.state.parsed_paper:
+            console.print(
+                Panel(
+                    CHECKPOINT_PROMPTS["paper_upload"]["request"],
+                    title="[bold]Step 3: Paper Upload[/bold]",
+                    border_style="cyan",
+                )
+            )
+
+            while not agent.state.parsed_paper:
+                file_path = Prompt.ask("\n[bold cyan]Paper file path[/bold cyan]")
+                file_path = file_path.strip().strip('"').strip("'")
+
+                # Expand user home directory
+                file_path = os.path.expanduser(file_path)
+
+                if not os.path.exists(file_path):
+                    console.print(f"[red]File not found: {file_path}[/red]")
+                    continue
+
+                try:
+                    with console.status("[bold green]Parsing paper...[/bold green]"):
+                        parsed = agent.parse_paper(file_path)
+                        agent.state.paper_path = file_path
+                        agent.state.parsed_paper = parsed
+
+                    console.print(f"\n[green]Paper parsed successfully[/green]")
+                    console.print(f"[bold]Title:[/bold] {parsed.get('title', 'Unknown')}")
+                    console.print(
+                        f"[bold]Pages:[/bold] {parsed.get('page_count', '?')} | "
+                        f"[bold]Words:[/bold] {parsed.get('word_count', '?'):,}"
+                    )
+                    console.print(
+                        f"[bold]Sections:[/bold] {', '.join(list(parsed.get('sections', {}).keys())[:5])}"
+                    )
+
+                except Exception as e:
+                    console.print(f"[red]Error parsing paper: {e}[/red]")
 
         agent.update_state(stage="reviewing")
 
@@ -269,6 +313,11 @@ async def run_interactive_session(
             )
         )
 
+        # Exit immediately in non-interactive mode
+        if non_interactive:
+            console.print("[bold]Thank you for using Academic Referee Agent![/bold]")
+            return
+
         while True:
             action = Prompt.ask(
                 "\n[bold cyan]What would you like to do?[/bold cyan]\n"
@@ -305,13 +354,14 @@ async def run_interactive_session(
 
 @click.command()
 @click.option("--paper", "-p", help="Path to paper file (PDF, Word, or LaTeX)")
+@click.option("--journal", "-j", help="Target journal name (skips interactive selection)")
 @click.option("--resume", "-r", help="Resume a previous session by ID")
 @click.option("--list-reviews", "-l", is_flag=True, help="List past reviews")
 @click.option("--list-sessions", "-s", is_flag=True, help="List saved sessions")
 @click.option("--output-dir", "-o", help="Output directory for reports")
 @click.option("--show-prompt", is_flag=True, help="Show the review prompt without running")
 @click.version_option(version=__version__)
-def main(paper, resume, list_reviews, list_sessions, output_dir, show_prompt):
+def main(paper, journal, resume, list_reviews, list_sessions, output_dir, show_prompt):
     """Academic Referee Agent - Journal-calibrated paper reviews.
 
     Provides rigorous, journal-specific reviews of academic papers
@@ -322,6 +372,8 @@ def main(paper, resume, list_reviews, list_sessions, output_dir, show_prompt):
         myreferee                    # Interactive mode
 
         myreferee -p paper.pdf       # Start with a paper
+
+        myreferee -p paper.pdf -j "Journal of Finance"  # Non-interactive
 
         myreferee --resume SESSION   # Resume a previous session
 
@@ -394,9 +446,19 @@ def main(paper, resume, list_reviews, list_sessions, output_dir, show_prompt):
             console.print("[yellow]No paper loaded. Use -p to specify a paper.[/yellow]")
         return
 
-    # Run interactive session
+    # Determine if running non-interactively
+    non_interactive = bool(paper and journal)
+
+    # Run session
     try:
-        asyncio.run(run_interactive_session(agent, resume))
+        asyncio.run(
+            run_interactive_session(
+                agent,
+                resume_session=resume,
+                target_journal=journal,
+                non_interactive=non_interactive,
+            )
+        )
     except KeyboardInterrupt:
         console.print(
             "\n[yellow]Session interrupted. Your progress has been saved.[/yellow]"
