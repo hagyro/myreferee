@@ -1,0 +1,162 @@
+# Academic Referee Agent Configuration
+# =====================================
+
+# API Settings
+api:
+  # Claude model to use
+  model: "claude-sonnet-4-20250514"
+  
+  # Scopus API settings
+  scopus:
+    base_url: "https://api.elsevier.com/content/search/scopus"
+    results_per_journal: 30
+    years_back: 5
+    fields:
+      - "dc:title"
+      - "dc:creator"
+      - "prism:publicationName"
+      - "prism:coverDate"
+      - "dc:description"
+      - "authkeywords"
+      - "citedby-count"
+  
+  # ScienceDirect API settings
+  sciencedirect:
+    base_url: "https://api.elsevier.com/content/search/sciencedirect"
+    results_per_journal: 20
+
+# Journal Research Settings
+journal_research:
+  # Minimum articles to analyze for referee priors
+  min_articles: 20
+  max_articles: 40
+  
+  # Priority recent publications (last N years)
+  priority_years: 3
+  
+  # Include special issues in analysis
+  include_special_issues: true
+
+# Paper Processing
+paper_processing:
+  # Supported formats
+  formats:
+    - ".pdf"
+    - ".docx"
+    - ".doc"
+    - ".tex"
+  
+  # Maximum file size (MB)
+  max_size_mb: 50
+  
+  # OCR for scanned PDFs (requires tesseract)
+  enable_ocr: false
+
+# Output Settings
+output:
+  # Default output format
+  format: "markdown"
+  
+  # Report components
+  include:
+    summary: true
+    contribution_assessment: true
+    major_concerns: true
+    minor_concerns: true
+    robustness_checklist: true
+    section_rewrites: true
+    positioning_analysis: true
+    editor_note: true
+    todo_list: true
+  
+  # File naming
+  filename_template: "{journal}_{paper_title}_{date}"
+
+# Review Settings
+review:
+  # Analysis depth
+  section_by_section: true
+  
+  # Comparison with journal's recent papers
+  positioning_analysis: true
+  
+  # Severity levels for concerns
+  severity_levels:
+    - "critical"    # Deal-breaker
+    - "major"       # Must address
+    - "minor"       # Should address
+    - "suggestion"  # Optional improvement
+
+# Session Management
+sessions:
+  # Session expiry (days)
+  expiry_days: 30
+  
+  # Auto-save interval (seconds)
+  autosave_interval: 60
+  
+  # Maximum sessions to keep
+  max_sessions: 100
+
+# User Interface
+ui:
+  # Progress indicators
+  show_progress: true
+  
+  # Verbose output
+  verbose: false
+  
+  # Color output (for terminal)
+  use_colors: true
+
+# Interaction Checkpoints
+# These define the structured questions the agent asks
+checkpoints:
+  # Stage 1: Target journal
+  journal_selection:
+    questions:
+      - "Which journal are you planning to submit to?"
+      - "Is this a first submission or a revise-and-resubmit (R&R)?"
+      - "If undecided, please provide 2-3 candidate journals."
+  
+  # Stage 2: Paper upload
+  paper_upload:
+    prompt: "Please upload your paper (PDF, Word, or LaTeX)."
+    follow_up:
+      - "What is the paper's main contribution in one sentence?"
+      - "What identification strategy do you use?"
+  
+  # Stage 3: Review preferences
+  review_preferences:
+    questions:
+      - "Any specific aspects you want me to focus on?"
+      - "Are there particular concerns from previous submissions?"
+
+# Known Journals (Optional)
+# Pre-configured journal metadata for faster research
+known_journals:
+  # Example entries - expand as needed
+  "Journal of Financial Economics":
+    issn: "0304-405X"
+    abs_rating: "4*"
+    typical_methods:
+      - "panel data"
+      - "difference-in-differences"
+      - "instrumental variables"
+      - "regression discontinuity"
+    
+  "Review of Economics and Statistics":
+    issn: "0034-6535"
+    abs_rating: "4*"
+    typical_methods:
+      - "structural estimation"
+      - "quasi-experiments"
+      - "IV"
+      
+  "Journal of Monetary Economics":
+    issn: "0304-3932"
+    abs_rating: "4*"
+    typical_methods:
+      - "DSGE models"
+      - "VAR"
+      - "calibration"
