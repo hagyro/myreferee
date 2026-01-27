@@ -230,14 +230,18 @@ class PaperParser:
         """Parse a LaTeX file."""
         if not LATEX_AVAILABLE:
             raise ImportError("LaTeX parsing requires: pip install pylatexenc")
-        
+
         with open(path, 'r', encoding='utf-8', errors='ignore') as f:
             latex_content = f.read()
-        
-        # Convert LaTeX to plain text
-        converter = LatexNodes2Text()
-        plain_text = converter.latex_to_text(latex_content)
-        
+
+        # Convert LaTeX to plain text with fallback for complex documents
+        try:
+            converter = LatexNodes2Text()
+            plain_text = converter.latex_to_text(latex_content)
+        except Exception:
+            # Fallback: strip LaTeX commands manually
+            plain_text = self._strip_latex_commands(latex_content)
+
         # Also extract from raw LaTeX for better structure detection
         title = self._extract_latex_title(latex_content) or self._extract_title(plain_text)
         abstract = self._extract_latex_abstract(latex_content) or self._extract_abstract(plain_text)
@@ -383,6 +387,39 @@ class PaperParser:
             metadata["jel_codes"] = jel_match.group(1).strip()
         
         return metadata
+
+    def _strip_latex_commands(self, latex: str) -> str:
+        """Fallback method to strip LaTeX commands and extract plain text."""
+        import re
+
+        # Remove comments
+        text = re.sub(r'%.*$', '', latex, flags=re.MULTILINE)
+
+        # Remove common environments we don't want
+        text = re.sub(r'\\begin\{(figure|table|equation|align|tikzpicture)\*?\}.*?\\end\{\1\*?\}', '', text, flags=re.DOTALL)
+
+        # Remove bibliography
+        text = re.sub(r'\\begin\{thebibliography\}.*?\\end\{thebibliography\}', '', text, flags=re.DOTALL)
+        text = re.sub(r'\\bibliography\{[^}]*\}', '', text)
+
+        # Extract content from common commands
+        text = re.sub(r'\\(?:textbf|textit|emph|underline)\{([^}]*)\}', r'\1', text)
+        text = re.sub(r'\\(?:section|subsection|subsubsection)\*?\{([^}]*)\}', r'\n\n\1\n\n', text)
+
+        # Remove remaining commands with arguments
+        text = re.sub(r'\\[a-zA-Z]+\*?(?:\[[^\]]*\])?\{[^}]*\}', '', text)
+
+        # Remove commands without arguments
+        text = re.sub(r'\\[a-zA-Z]+\*?', '', text)
+
+        # Remove braces
+        text = re.sub(r'[{}]', '', text)
+
+        # Clean up whitespace
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        text = re.sub(r' {2,}', ' ', text)
+
+        return text.strip()
 
 
 def parse_paper(file_path: str) -> ParsedPaper:
