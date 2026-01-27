@@ -59,6 +59,7 @@ class ParsedPaper:
             "title": self.title,
             "abstract": self.abstract,
             "sections": self.sections,
+            "full_text": self.full_text,
             "word_count": self.word_count,
             "page_count": self.page_count,
             "source_format": self.source_format,

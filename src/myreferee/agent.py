@@ -117,20 +117,27 @@ class ClaudeRunner:
                 "https://claude.ai/code"
             )
 
-        # Run claude with the prompt
+        # Run claude with the prompt via temp file and shell piping
         # Using -p for print mode (non-interactive)
-        result = subprocess.run(
-            [
-                "claude",
-                "-p",
-                prompt,
-                "--allowedTools",
-                "WebSearch,WebFetch",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=600,  # 10 minute timeout for long reviews
-        )
+        # Disable all tools to focus on the paper content
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(prompt)
+            temp_path = f.name
+
+        try:
+            result = subprocess.run(
+                f'cat "{temp_path}" | claude -p --tools ""',
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=600,  # 10 minute timeout for long reviews
+            )
+        finally:
+            import os
+
+            os.unlink(temp_path)
 
         if result.returncode != 0:
             error_msg = result.stderr or "Unknown error"
@@ -198,47 +205,65 @@ class AcademicRefereeAgent:
     def generate_review_prompt(self) -> str:
         """Generate the comprehensive review prompt for Claude."""
         paper = self.state.parsed_paper
-        journal = self.state.journal_profile
+        journal = self.state.target_journal
+        full_text = paper.get('full_text', '')[:30000]
 
-        return f"""{SYSTEM_PROMPT}
+        return f"""You are an expert academic referee for {journal}. Write a detailed referee report for the paper below.
 
----
+# PAPER TO REVIEW
 
-## CURRENT TASK
+Title: {paper.get('title', 'Unknown')}
+Word Count: {paper.get('word_count', 'Unknown')}
+Pages: {paper.get('page_count', 'Unknown')}
 
-Review the following paper for **{self.state.target_journal}**.
+## Paper Content:
 
-### Journal Profile
-{json.dumps(journal, indent=2) if journal else "Journal research pending."}
-
-### Paper to Review
-**Title:** {paper.get('title', 'Unknown')}
-**Word Count:** {paper.get('word_count', 'Unknown')}
-**Page Count:** {paper.get('page_count', 'Unknown')}
-
-**Abstract:**
-{paper.get('abstract', 'Not available')}
-
-**Sections:**
-{chr(10).join(f"- {name}" for name in paper.get('sections', {}).keys())}
-
-**Full Text (truncated):**
-{paper.get('full_text', '')[:30000]}
+{full_text}
 
 ---
 
-Now provide a complete referee report following the structure in your instructions:
-1. Summary (2-3 sentences)
-2. Contribution & Journal Fit
-3. Major Concerns (deal-breakers)
-4. Minor Concerns
-5. Robustness/Diagnostics Checklist
-6. Section-by-Section Analysis
-7. Positioning vs. Journal Benchmarks
-8. Editor Cover Note
-9. Prioritized To-Do List
+# YOUR TASK
 
-Be specific, cite evidence from the paper, and calibrate to {self.state.target_journal}'s standards."""
+Write a COMPLETE referee report in markdown format with these sections:
+
+## 1. Summary
+2-3 sentences describing what the paper does and its main findings.
+
+## 2. Contribution & Journal Fit
+- What is the paper's main contribution?
+- How well does it fit {journal}'s scope and standards?
+
+## 3. Major Concerns
+List critical issues that must be fixed. For each:
+- **Issue**: [specific problem]
+- **Why it matters**: [explanation]
+- **Suggested fix**: [actionable solution]
+
+## 4. Minor Concerns
+Numbered list of secondary issues.
+
+## 5. Robustness Checklist
+What additional tests are needed? Use checkboxes:
+- [ ] Test 1
+- [ ] Test 2
+
+## 6. Section-by-Section Analysis
+For Introduction, Literature, Data, Methodology, Results, Conclusion:
+- Strengths
+- Weaknesses
+- Suggestions
+
+## 7. Positioning
+How does this compare to recent {journal} publications?
+
+## 8. Editor Note
+One paragraph recommendation (accept/revise/reject with reasoning).
+
+## 9. To-Do List
+Prioritized list of revisions ordered by importance.
+
+---
+Write the FULL report now. Be specific and cite page numbers/quotes from the paper."""
 
     async def run_review(self) -> str:
         """Run the review using Claude CLI."""
