@@ -10,6 +10,7 @@ An AI-powered referee agent that provides rigorous, journal-specific reviews of 
 - **Persistent review history**: Track R&R submissions and compare versions
 - **Markdown output**: Clean, portable referee reports
 - **CLI tool**: Callable from any directory once installed
+- **Web interface**: Localhost browser UI for uploading papers and downloading reports
 
 ## Prerequisites
 
@@ -36,7 +37,7 @@ winget install Anthropic.ClaudeCode
 ### 2. Clone or download this project
 
 ```bash
-git clone https://github.com/yourusername/myreferee.git
+git clone https://github.com/hagyro/myreferee.git
 cd myreferee
 ```
 
@@ -109,12 +110,36 @@ myreferee -p path/to/paper.pdf
 
 5. **Output saved to `~/.local/share/myreferee/reviews/`**
 
+### Web interface
+
+myreferee also provides a browser-based interface running on localhost. Upload papers via drag-and-drop, track review progress in real time, and download `.md` reports to any destination.
+
+```bash
+# Launch the web UI (default: http://127.0.0.1:5000)
+myreferee --web
+
+# Use a custom port
+myreferee --web --port 8080
+
+# Or use the standalone command
+myreferee-web
+```
+
+The web interface provides:
+- **Upload form**: Drag-and-drop or click to upload `.pdf`, `.tex`, or `.docx` files
+- **Journal selection**: Specify the target journal before submitting
+- **Live progress**: Status bar tracks each stage (parsing, research, review)
+- **Download**: Save the `.md` report to any location on your machine
+- **Review history**: Browse and re-download all past reviews
+
 ### Command-line options
 
 ```bash
 myreferee --help                    # Show all options
 
 myreferee -p paper.pdf              # Start with a paper
+
+myreferee -p paper.pdf -j "Journal of Finance"  # Non-interactive mode
 
 myreferee --resume SESSION_ID       # Resume a previous session
 
@@ -125,6 +150,10 @@ myreferee --list-sessions           # List saved sessions
 myreferee -o ./my-reviews           # Custom output directory
 
 myreferee --show-prompt -p paper.pdf  # Show review prompt without running
+
+myreferee --web                     # Launch web interface
+
+myreferee --web --port 8080         # Web interface on custom port
 ```
 
 ## Configuration
@@ -170,6 +199,9 @@ myreferee/
 │       ├── cli.py          # CLI entry point
 │       ├── agent.py        # Core agent logic
 │       ├── config.py       # Configuration handling
+│       ├── web.py          # Flask web interface
+│       ├── templates/
+│       │   └── index.html  # Web UI template
 │       ├── tools/
 │       │   ├── paper_parser.py
 │       │   ├── journal_research.py
