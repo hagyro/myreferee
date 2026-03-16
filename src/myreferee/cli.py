@@ -360,8 +360,10 @@ async def run_interactive_session(
 @click.option("--list-sessions", "-s", is_flag=True, help="List saved sessions")
 @click.option("--output-dir", "-o", help="Output directory for reports")
 @click.option("--show-prompt", is_flag=True, help="Show the review prompt without running")
+@click.option("--web", is_flag=True, help="Launch web interface on localhost")
+@click.option("--port", default=5000, help="Port for web interface (default: 5000)")
 @click.version_option(version=__version__)
-def main(paper, journal, resume, list_reviews, list_sessions, output_dir, show_prompt):
+def main(paper, journal, resume, list_reviews, list_sessions, output_dir, show_prompt, web, port):
     """Academic Referee Agent - Journal-calibrated paper reviews.
 
     Provides rigorous, journal-specific reviews of academic papers
@@ -380,6 +382,13 @@ def main(paper, journal, resume, list_reviews, list_sessions, output_dir, show_p
         myreferee --list-sessions    # Show saved sessions
     """
     print_header()
+
+    # Launch web interface if requested
+    if web:
+        from myreferee.web import run_server
+
+        run_server(port=port)
+        return
 
     # Check for Elsevier API key
     if not settings.elsevier_api_key:

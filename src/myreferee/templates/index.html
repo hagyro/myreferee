@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>myreferee</title>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #232733;
+            --border: #2e3340;
+            --text: #e0e0e6;
+            --text-dim: #8b8fa3;
+            --accent: #6c8cff;
+            --accent-hover: #8ba3ff;
+            --success: #4ade80;
+            --error: #f87171;
+            --warning: #fbbf24;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        header h1 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+        header h1 span { color: var(--accent); }
+        header p {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            margin-top: 0.3rem;
+        }
+        nav {
+            margin-top: 0.8rem;
+            display: flex;
+            gap: 1.5rem;
+        }
+        nav a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.8rem;
+            transition: color 0.15s;
+        }
+        nav a:hover, nav a.active { color: var(--accent); }
+
+        /* Flash messages */
+        .flash {
+            padding: 0.6rem 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            font-size: 0.8rem;
+            border: 1px solid;
+        }
+        .flash.error { border-color: var(--error); color: var(--error); background: rgba(248,113,113,0.08); }
+        .flash.success { border-color: var(--success); color: var(--success); background: rgba(74,222,128,0.08); }
+
+        /* Upload form */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .card h2 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text);
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-bottom: 0.35rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 0.55rem 0.75rem;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        input[type="text"]:focus, select:focus {
+            border-color: var(--accent);
+        }
+        input[type="text"]::placeholder { color: var(--text-dim); }
+
+        /* File upload area */
+        .file-drop {
+            border: 2px dashed var(--border);
+            border-radius: 6px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            position: relative;
+        }
+        .file-drop:hover, .file-drop.dragover {
+            border-color: var(--accent);
+            background: rgba(108,140,255,0.04);
+        }
+        .file-drop input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .file-drop .label {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+        }
+        .file-drop .label strong { color: var(--accent); }
+        .file-drop .selected {
+            color: var(--success);
+            font-size: 0.8rem;
+            margin-top: 0.4rem;
+        }
+
+        /* Submit button */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.6rem 1.4rem;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+            text-decoration: none;
+        }
+        .btn:hover { background: var(--accent-hover); }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+        }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+        .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.75rem; }
+
+        /* Job status */
+        .status-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .status-bar {
+            display: flex;
+            gap: 0;
+            margin: 1rem 0;
+        }
+        .status-step {
+            flex: 1;
+            text-align: center;
+            padding: 0.5rem 0;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            border-bottom: 3px solid var(--border);
+            transition: all 0.3s;
+        }
+        .status-step.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+        .status-step.done {
+            color: var(--success);
+            border-bottom-color: var(--success);
+        }
+        .status-step.error {
+            color: var(--error);
+            border-bottom-color: var(--error);
+        }
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.4rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .status-message {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 0.5rem;
+        }
+        .error-msg {
+            color: var(--error);
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            padding: 0.6rem;
+            background: rgba(248,113,113,0.08);
+            border-radius: 4px;
+        }
+
+        /* Reviews list */
+        .review-list { list-style: none; }
+        .review-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+        }
+        .review-item:last-child { border-bottom: none; }
+        .review-name {
+            color: var(--text);
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 1rem;
+        }
+        .review-meta {
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            white-space: nowrap;
+            margin-right: 0.8rem;
+        }
+        .review-actions { display: flex; gap: 0.4rem; }
+
+        /* Report viewer */
+        .report-view {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 2rem;
+            font-size: 0.85rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        .report-view h1, .report-view h2, .report-view h3 {
+            color: var(--accent);
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .actions-row {
+            display: flex;
+            gap: 0.6rem;
+            margin-top: 1rem;
+        }
+        footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span>my</span>referee</h1>
+            <p>Journal-calibrated academic paper reviews</p>
+            <nav>
+                <a href="/" class="{% if not view_content and not job %}active{% endif %}">Upload</a>
+                <a href="/#reviews">Past Reviews</a>
+            </nav>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% if job %}
+        <!-- Job Status View -->
+        <div class="status-card">
+            <h2>Review in Progress</h2>
+            <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.5rem;">
+                {{ job.filename }} &rarr; {{ job.journal }}
+            </div>
+
+            <div class="status-bar">
+                <div class="status-step {% if job.status == 'queued' %}active{% elif job.status in ['parsing','researching','reviewing','complete'] %}done{% endif %}">
+                    Queued
+                </div>
+                <div class="status-step {% if job.status == 'parsing' %}active{% elif job.status in ['researching','reviewing','complete'] %}done{% endif %}">
+                    Parsing
+                </div>
+                <div class="status-step {% if job.status == 'researching' %}active{% elif job.status in ['reviewing','complete'] %}done{% endif %}">
+                    Research
+                </div>
+                <div class="status-step {% if job.status == 'reviewing' %}active{% elif job.status == 'complete' %}done{% endif %}">
+                    Reviewing
+                </div>
+                <div class="status-step {% if job.status == 'complete' %}done{% elif job.status == 'error' %}error{% endif %}">
+                    Complete
+                </div>
+            </div>
+
+            <div id="status-text">
+                {% if job.status == 'complete' %}
+                    <div style="color: var(--success); font-size: 0.85rem; font-weight: 600;">
+                        Review complete!
+                    </div>
+                    {% if job.title %}
+                    <div class="status-message">{{ job.title }} ({{ job.pages }} pages, {{ job.words|default(0, true) }} words)</div>
+                    {% endif %}
+                    <div class="actions-row">
+                        <a href="/download/{{ job.report_name }}" class="btn btn-sm">Download .md</a>
+                        <a href="/view/{{ job.report_name }}" class="btn btn-sm btn-outline">View</a>
+                        <a href="/" class="btn btn-sm btn-outline">New Review</a>
+                    </div>
+                {% elif job.status == 'error' %}
+                    <div class="error-msg">{{ job.error }}</div>
+                    <div class="actions-row">
+                        <a href="/" class="btn btn-sm btn-outline">Try Again</a>
+                    </div>
+                {% else %}
+                    <div class="status-message">
+                        <span class="spinner"></span>
+                        {% if job.status == 'queued' %}Preparing...
+                        {% elif job.status == 'parsing' %}Parsing paper...
+                        {% elif job.status == 'researching' %}Researching journal...
+                        {% elif job.status == 'reviewing' %}Claude is reviewing (this may take several minutes)...
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if job.status not in ['complete', 'error'] %}
+        <script>
+            // Poll for status updates
+            const jobId = "{{ job_id }}";
+            function pollStatus() {
+                fetch(`/api/status/${jobId}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'complete' || data.status === 'error') {
+                            window.location.reload();
+                        } else {
+                            setTimeout(pollStatus, 3000);
+                        }
+                    })
+                    .catch(() => setTimeout(pollStatus, 5000));
+            }
+            setTimeout(pollStatus, 3000);
+        </script>
+        {% endif %}
+
+        {% elif view_content %}
+        <!-- Report Viewer -->
+        <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="font-size: 0.9rem;">{{ view_name }}</h2>
+            <div class="actions-row" style="margin-top: 0;">
+                <a href="/download/{{ view_name }}" class="btn btn-sm">Download .md</a>
+                <a href="/" class="btn btn-sm btn-outline">Back</a>
+            </div>
+        </div>
+        <div class="report-view">{{ view_content }}</div>
+
+        {% else %}
+        <!-- Upload Form -->
+        <div class="card">
+            <h2>New Review</h2>
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="journal">Target Journal</label>
+                    <input type="text" id="journal" name="journal"
+                           placeholder="e.g. Tourism Economics, Journal of Finance"
+                           required autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label>Paper File</label>
+                    <div class="file-drop" id="file-drop">
+                        <input type="file" name="paper" id="paper-input"
+                               accept=".pdf,.tex,.docx,.doc" required>
+                        <div class="label">
+                            <strong>Click to upload</strong> or drag and drop<br>
+                            PDF, LaTeX (.tex), or Word (.docx)
+                        </div>
+                        <div class="selected" id="file-selected" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn">Start Review</button>
+            </form>
+        </div>
+
+        <!-- Past Reviews -->
+        {% if reviews %}
+        <div class="card" id="reviews">
+            <h2>Past Reviews</h2>
+            <ul class="review-list">
+                {% for r in reviews %}
+                <li class="review-item">
+                    <span class="review-name">{{ r.name }}</span>
+                    <span class="review-meta">{{ r.date }} &middot; {{ r.size }}</span>
+                    <div class="review-actions">
+                        <a href="/view/{{ r.name }}" class="btn btn-sm btn-outline">View</a>
+                        <a href="/download/{{ r.name }}" class="btn btn-sm btn-outline">Download</a>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% endif %}
+
+        <footer>myreferee v0.1.0</footer>
+    </div>
+
+    <script>
+        // File drop UX
+        const drop = document.getElementById('file-drop');
+        const input = document.getElementById('paper-input');
+        const selected = document.getElementById('file-selected');
+
+        if (input) {
+            input.addEventListener('change', function() {
+                if (this.files.length) {
+                    selected.textContent = this.files[0].name;
+                    selected.style.display = 'block';
+                }
+            });
+        }
+        if (drop) {
+            drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragover'); });
+            drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+            drop.addEventListener('drop', (e) => {
+                e.preventDefault();
+                drop.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    input.files = e.dataTransfer.files;
+                    selected.textContent = e.dataTransfer.files[0].name;
+                    selected.style.display = 'block';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
